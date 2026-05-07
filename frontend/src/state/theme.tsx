@@ -12,7 +12,29 @@ interface ThemeContextValue {
   themes: Theme[];
 }
 
-export const THEMES: Theme[] = [{ id: 'apple', label: 'Apple' }];
+export const THEMES: Theme[] = [
+  { id: 'apple', label: 'Apple' },
+  { id: 'glassmorphism-sky', label: 'Glassmorphism Sky' },
+  { id: 'retro-terminal', label: 'Retro Terminal' },
+  { id: 'neo-brutalist', label: 'Neo-Brutalist' },
+  { id: 'sketchbook', label: 'Sketchbook' },
+  { id: 'cyberpunk', label: 'Cyberpunk' },
+  { id: 'vintage-almanac', label: 'Vintage Almanac' },
+  { id: 'minimal-swiss', label: 'Minimal Swiss' },
+  { id: 'ghibli-pastoral', label: 'Ghibli Pastoral' },
+  { id: 'dark-glass', label: 'Dark Glass' },
+  { id: 'material-you', label: 'Material You' },
+  { id: 'weather-reactive', label: 'Weather Reactive' },
+  { id: 'newspaper', label: 'Newspaper' },
+  { id: 'aviation-hud', label: 'Aviation HUD' },
+  { id: 'claymorphism', label: 'Claymorphism' },
+  { id: 'synthwave', label: 'Synthwave' },
+  { id: 'paper-cutout', label: 'Paper Cutout' },
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'cottagecore', label: 'Cottagecore' },
+  { id: 'frutiger-aero', label: 'Frutiger Aero' },
+  { id: 'risograph', label: 'Risograph' },
+];
 
 export const DEFAULT_THEME_ID = 'apple';
 
