@@ -11,12 +11,30 @@ body,
 
 body {
   @apply text-white antialiased;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* ----------------------------------
+   Theme: Apple (Default)
+   ---------------------------------- */
+body.theme-apple {
   background:
     radial-gradient(120% 80% at 70% 0%, rgba(255, 255, 255, 0.18) 0%, transparent 55%),
     radial-gradient(90% 70% at 10% 100%, rgba(80, 110, 150, 0.55) 0%, transparent 60%),
     linear-gradient(170deg, #6f8aa8 0%, #5a7591 35%, #4a627c 65%, #3c5066 100%);
-  background-attachment: fixed;
-  background-repeat: no-repeat;
+}
+
+/* ----------------------------------
+   Placeholder Themes
+   ---------------------------------- */
+body.theme-cotton-candy { background: linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%); }
+body.theme-night-city { background: #0f172a; }
+body.theme-pixel { background: #3b82f6; }
+body.theme-terminal {
+  background: #000000;
+  @apply text-green-500;
 }
 
 button,
