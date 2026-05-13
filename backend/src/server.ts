@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import helmet from 'helmet';
 import pinoHttpModule from 'pino-http';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -20,6 +21,10 @@ export async function createApp(options: AppOptions = {}) {
   const app = express();
   const serveFrontend = options.serveFrontend ?? process.env.NODE_ENV !== 'test';
   const enableRequestLogging = options.enableRequestLogging ?? process.env.NODE_ENV !== 'test';
+
+  // Add security headers using helmet
+  // Disabling CSP to allow loading external images for the map
+  app.use(helmet({ contentSecurityPolicy: false }));
 
   if (enableRequestLogging) {
     app.use(pinoHttp({ logger }));
