@@ -193,10 +193,14 @@ export class SingaporeWeatherClient {
 
     const forecastPayload = await settle(this.fetchLatestForecastPayload());
     const airTemp = await settle(this.fetchNearestReading('air-temperature', latitude, longitude));
-    const relativeHumidity = await settle(this.fetchNearestReading('relative-humidity', latitude, longitude));
+    const relativeHumidity = await settle(
+      this.fetchNearestReading('relative-humidity', latitude, longitude),
+    );
     const rainfall = await settle(this.fetchNearestReading('rainfall', latitude, longitude));
     const windSpeed = await settle(this.fetchNearestReading('wind-speed', latitude, longitude));
-    const windDirection = await settle(this.fetchNearestReading('wind-direction', latitude, longitude));
+    const windDirection = await settle(
+      this.fetchNearestReading('wind-direction', latitude, longitude),
+    );
     const uvIndex = await settle(this.fetchUvIndex());
     const airQuality = await settle(this.fetchAirQuality(latitude, longitude));
     const twentyFourHour = await settle(this.fetchTwentyFourHourForecast(latitude, longitude));
@@ -302,7 +306,10 @@ export class SingaporeWeatherClient {
     return this.fetchJson(`${this.apiBaseUrl()}/v2/real-time/api/${endpoint}`);
   }
 
-  async fetchUvIndex(): Promise<{ value: number | null; timestamp: string | null }> {
+  async fetchUvIndex(): Promise<{
+    value: number | null;
+    timestamp: string | null;
+  }> {
     const payload = await this.fetchJson<UvPayload>(`${this.apiBaseUrl()}/v2/real-time/api/uv`);
     if (payload.code !== undefined && payload.code !== 0) {
       throw new WeatherProviderError(
@@ -327,33 +334,33 @@ export class SingaporeWeatherClient {
     region: string | null;
     timestamp: string | null;
   }> {
-    try {
-      const psiPayload = await this.fetchJson<PsiPayload>(`${this.apiBaseUrl()}/v2/real-time/api/psi`);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      const pm25Payload = await this.fetchJson<PsiPayload>(`${this.apiBaseUrl()}/v2/real-time/api/pm25`);
-      for (const payload of [psiPayload, pm25Payload]) {
-        if (payload.code !== undefined && payload.code !== 0) {
-          throw new WeatherProviderError(
-            payload.errorMsg ?? 'Weather provider returned an air quality error',
-          );
-        }
+    const psiPayload = await this.fetchJson<PsiPayload>(
+      `${this.apiBaseUrl()}/v2/real-time/api/psi`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const pm25Payload = await this.fetchJson<PsiPayload>(
+      `${this.apiBaseUrl()}/v2/real-time/api/pm25`,
+    );
+    for (const payload of [psiPayload, pm25Payload]) {
+      if (payload.code !== undefined && payload.code !== 0) {
+        throw new WeatherProviderError(
+          payload.errorMsg ?? 'Weather provider returned an air quality error',
+        );
       }
-
-      const region = nearestRegionName(psiPayload.data?.regionMetadata ?? [], latitude, longitude);
-      const psiItem = psiPayload.data?.items?.[0];
-      const pm25Item = pm25Payload.data?.items?.[0];
-      return {
-        psi: valueForRegion(psiItem?.readings?.psi_twenty_four_hourly, region),
-        pm25: valueForRegion(pm25Item?.readings?.pm25_one_hourly, region),
-        region,
-        timestamp: latestTimestamp([
-          psiItem?.updatedTimestamp ?? psiItem?.timestamp ?? null,
-          pm25Item?.updatedTimestamp ?? pm25Item?.timestamp ?? null,
-        ]),
-      };
-    } catch (err) {
-      throw err;
     }
+
+    const region = nearestRegionName(psiPayload.data?.regionMetadata ?? [], latitude, longitude);
+    const psiItem = psiPayload.data?.items?.[0];
+    const pm25Item = pm25Payload.data?.items?.[0];
+    return {
+      psi: valueForRegion(psiItem?.readings?.psi_twenty_four_hourly, region),
+      pm25: valueForRegion(pm25Item?.readings?.pm25_one_hourly, region),
+      region,
+      timestamp: latestTimestamp([
+        psiItem?.updatedTimestamp ?? psiItem?.timestamp ?? null,
+        pm25Item?.updatedTimestamp ?? pm25Item?.timestamp ?? null,
+      ]),
+    };
   }
 
   async fetchTwentyFourHourForecast(
@@ -389,7 +396,10 @@ export class SingaporeWeatherClient {
     };
   }
 
-  async fetchFourDayForecast(): Promise<{ days: DailyForecast[]; timestamp: string | null }> {
+  async fetchFourDayForecast(): Promise<{
+    days: DailyForecast[];
+    timestamp: string | null;
+  }> {
     const payload = await this.fetchJson<FourDayPayload>(
       `${this.legacyApiBaseUrl()}/v1/environment/4-day-weather-forecast`,
     );
@@ -633,12 +643,14 @@ function valueForRegion(
   return numberOrNull(values[region]);
 }
 
-
 function defaultRegions(): RegionMetadata[] {
   return [
     { name: 'west', labelLocation: { latitude: 1.35735, longitude: 103.7 } },
     { name: 'north', labelLocation: { latitude: 1.41803, longitude: 103.82 } },
-    { name: 'central', labelLocation: { latitude: 1.35735, longitude: 103.82 } },
+    {
+      name: 'central',
+      labelLocation: { latitude: 1.35735, longitude: 103.82 },
+    },
     { name: 'south', labelLocation: { latitude: 1.29587, longitude: 103.82 } },
     { name: 'east', labelLocation: { latitude: 1.35735, longitude: 103.94 } },
   ];
