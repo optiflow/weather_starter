@@ -181,30 +181,45 @@ export class SingaporeWeatherClient {
   ) {}
 
   async getCurrentWeather(latitude: number, longitude: number): Promise<WeatherSnapshot> {
-    const settle = async <T>(promise: Promise<T>) => {
+    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    // ⚡ Bolt Optimization: Replace sequential 1-second delays with a staggered Promise.all.
+    // This allows calls to run concurrently without hitting the provider's HTTP 429 rate limit.
+    const settle = async <T>(promiseFn: () => Promise<T>, delayMs: number) => {
+      if (delayMs > 0) {
+        await delay(delayMs);
+      }
       try {
-        const value = await promise;
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const value = await promiseFn();
         return { status: 'fulfilled' as const, value };
       } catch (reason) {
         return { status: 'rejected' as const, reason };
       }
     };
 
-    const forecastPayload = await settle(this.fetchLatestForecastPayload());
-    const airTemp = await settle(this.fetchNearestReading('air-temperature', latitude, longitude));
-    const relativeHumidity = await settle(
-      this.fetchNearestReading('relative-humidity', latitude, longitude),
-    );
-    const rainfall = await settle(this.fetchNearestReading('rainfall', latitude, longitude));
-    const windSpeed = await settle(this.fetchNearestReading('wind-speed', latitude, longitude));
-    const windDirection = await settle(
-      this.fetchNearestReading('wind-direction', latitude, longitude),
-    );
-    const uvIndex = await settle(this.fetchUvIndex());
-    const airQuality = await settle(this.fetchAirQuality(latitude, longitude));
-    const twentyFourHour = await settle(this.fetchTwentyFourHourForecast(latitude, longitude));
-    const fourDay = await settle(this.fetchFourDayForecast());
+    const [
+      forecastPayload,
+      airTemp,
+      relativeHumidity,
+      rainfall,
+      windSpeed,
+      windDirection,
+      uvIndex,
+      airQuality,
+      twentyFourHour,
+      fourDay,
+    ] = await Promise.all([
+      settle(() => this.fetchLatestForecastPayload(), 0),
+      settle(() => this.fetchNearestReading('air-temperature', latitude, longitude), 200),
+      settle(() => this.fetchNearestReading('relative-humidity', latitude, longitude), 400),
+      settle(() => this.fetchNearestReading('rainfall', latitude, longitude), 600),
+      settle(() => this.fetchNearestReading('wind-speed', latitude, longitude), 800),
+      settle(() => this.fetchNearestReading('wind-direction', latitude, longitude), 1000),
+      settle(() => this.fetchUvIndex(), 1200),
+      settle(() => this.fetchAirQuality(latitude, longitude), 1400),
+      settle(() => this.fetchTwentyFourHourForecast(latitude, longitude), 1600),
+      settle(() => this.fetchFourDayForecast(), 1800),
+    ]);
 
     const snapshot =
       forecastPayload.status === 'fulfilled'
@@ -334,13 +349,18 @@ export class SingaporeWeatherClient {
     region: string | null;
     timestamp: string | null;
   }> {
-    const psiPayload = await this.fetchJson<PsiPayload>(
-      `${this.apiBaseUrl()}/v2/real-time/api/psi`,
-    );
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    const pm25Payload = await this.fetchJson<PsiPayload>(
-      `${this.apiBaseUrl()}/v2/real-time/api/pm25`,
-    );
+    // ⚡ Bolt Optimization: Replace sequential await and 1s delay with staggered Promise.all.
+    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    const settle = async <T>(promiseFn: () => Promise<T>, delayMs: number) => {
+      if (delayMs > 0) await delay(delayMs);
+      return promiseFn();
+    };
+
+    const [psiPayload, pm25Payload] = await Promise.all([
+      settle(() => this.fetchJson<PsiPayload>(`${this.apiBaseUrl()}/v2/real-time/api/psi`), 0),
+      settle(() => this.fetchJson<PsiPayload>(`${this.apiBaseUrl()}/v2/real-time/api/pm25`), 200),
+    ]);
+
     for (const payload of [psiPayload, pm25Payload]) {
       if (payload.code !== undefined && payload.code !== 0) {
         throw new WeatherProviderError(
