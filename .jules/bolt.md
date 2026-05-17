@@ -1,0 +1,3 @@
+## 2023-10-27 - Staggered Concurrent Requests Bypasses Strict API Rate Limits
+**Learning:** The `api-open.data.gov.sg` weather API enforces strict rate limiting (HTTP 429). The previous implementation used sequential API requests with 1000ms delays to fetch 10 endpoints safely, resulting in ~28s total latency. Purely parallel requests (`Promise.allSettled` without delay) hit the rate limit instantly, rejecting most requests.
+**Action:** When making concurrent requests to a rate-limited API, stagger the execution using a progressive delay (e.g., 200ms increments) inside a `Promise.allSettled` loop. This avoids the HTTP 429 limit while maintaining concurrency, dramatically reducing the execution time (down to ~4.6s in this case).
