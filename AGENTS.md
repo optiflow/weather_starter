@@ -10,6 +10,15 @@ entrypoint: "npm run dev"
 ## Purpose
 This file is the repository-wide operating contract for coding agents working on `weather-starter`. Keep it durable, concrete, and executable. Put long, repeatable workflows in `.agents/skills/**/SKILL.md`; put product and engineering reference material in `docs/`.
 
+## Reasoning approach
+- Apply 'Mutually Exclusive, Completely Exhaustive' & 'Minto Pyramid' principles.
+- Analyze issues through first-principle thinking instead of through analogy.
+- Be objective and unbiased. Avoid sycophancy.
+
+## Essentials
+- **Package Manager**: npm (uses npm workspaces)
+- **Primary Dev Command**: `npm run dev`
+
 ## Instruction Precedence
 Apply instructions in this order:
 1. System, developer, and active user instructions.
