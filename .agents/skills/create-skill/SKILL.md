@@ -1,6 +1,6 @@
 ---
 name: create-skill
-description: Create new skills, modify and improve existing skills. Use when users want to create a skill from scratch, edit, or optimize an existing skill that extends the agent's capabilities with specialized knowledge, workflows, or tool integrations.
+description: Use when users want to create a skill from scratch that extends the agent's capabilities with specialized knowledge, workflows, or tool integrations.
 ---
 
 A skill for creating new skills and iteratively improving them.
