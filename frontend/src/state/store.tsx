@@ -49,14 +49,22 @@ export function StoreProvider({ children }: ProviderProps) {
       logInteraction('location_create_submitted', payload);
       try {
         const created = await createLocation(payload);
-        const next = await load();
-        const targetId = created?.id ?? next[next.length - 1]?.id;
+        let targetId = created?.id;
+
+        if (created) {
+          setLocations((prev) => [...prev, created]);
+        } else {
+          // Fallback if createLocation doesn't return the created item for some reason
+          const next = await load();
+          targetId = next[next.length - 1]?.id;
+        }
+
         if (targetId) setSelectedId(targetId);
         setIsAdding(false);
         logInteraction('location_created', {
           locationId: targetId,
-          latitude: created.latitude,
-          longitude: created.longitude,
+          latitude: created?.latitude ?? payload.latitude,
+          longitude: created?.longitude ?? payload.longitude,
         });
       } catch (err) {
         setError(err);
