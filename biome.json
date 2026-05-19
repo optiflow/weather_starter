@@ -9,13 +9,13 @@
     "ignoreUnknown": false,
     "includes": [
       "**",
-      "!**/dist/**",
-      "!**/node_modules/**",
+      "!**/dist",
+      "!**/node_modules",
       "!**/backend/weather.db*",
-      "!**/backend/drizzle/meta/**",
-      "!**/docs/**",
+      "!**/backend/drizzle/meta",
+      "!**/docs",
       "!**/pnpm-lock.yaml",
-      "!**/.venv/**"
+      "!**/.venv"
     ]
   },
   "formatter": {
