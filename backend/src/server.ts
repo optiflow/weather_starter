@@ -43,6 +43,23 @@ export async function createApp(options: AppOptions = {}) {
     express.json({ limit: '10kb' })(request, response, next);
   });
 
+  // Security enhancements: Native rate limiting to prevent abuse
+  const requestCounts = new Map<string, number>();
+  const cleanupInterval = setInterval(() => requestCounts.clear(), 60000);
+  if (cleanupInterval.unref) cleanupInterval.unref();
+
+  app.use('/api', (request, response, next) => {
+    const ip = request.ip ?? request.socket.remoteAddress ?? 'unknown';
+    const count = (requestCounts.get(ip) ?? 0) + 1;
+    requestCounts.set(ip, count);
+
+    if (count > 100) {
+      response.status(429).json({ detail: 'Too many requests, please try again later.' });
+      return;
+    }
+    next();
+  });
+
   app.get('/health', (_request, response) => {
     response.json({ status: 'healthy' });
   });
