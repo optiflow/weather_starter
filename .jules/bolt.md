@@ -1,0 +1,3 @@
+## 2024-05-19 - Avoid HTTP 429 via Staggered Concurrent Execution
+**Learning:** The `api-open.data.gov.sg` weather API enforces strict rate limits (HTTP 429) that prevent issuing large amounts of parallel requests using `Promise.all` simultaneously. Previously, a sequential fetch loop with artificial 1-second delays took over 26 seconds to complete.
+**Action:** When fetching multiple endpoints from the Singapore Weather API simultaneously, wrap the promises in a staggered execution helper (e.g. `Promise.all` with a delay thunk parameter, like `200ms` intervals) rather than firing them all instantly or running them purely sequentially. This allows fetching all required data in ~3.5 seconds without encountering rate limits.
