@@ -43,6 +43,31 @@ export async function createApp(options: AppOptions = {}) {
     express.json({ limit: '10kb' })(request, response, next);
   });
 
+  // Security enhancements: basic rate limiting to prevent brute force and DoS
+  const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+
+  // Note: Unref the interval to avoid keeping the process alive in tests
+  const interval = setInterval(() => rateLimitMap.clear(), 60000);
+  if (interval.unref) interval.unref();
+
+  app.use('/api', (request, response, next) => {
+    const ip = request.ip || request.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+    const entry = rateLimitMap.get(ip);
+
+    if (entry && entry.resetTime > now) {
+      if (entry.count >= 100) {
+        logger.warn({ ip }, 'Rate limit exceeded');
+        response.status(429).json({ detail: 'Too many requests, please try again later.' });
+        return;
+      }
+      entry.count++;
+    } else {
+      rateLimitMap.set(ip, { count: 1, resetTime: now + 60000 });
+    }
+    next();
+  });
+
   app.get('/health', (_request, response) => {
     response.json({ status: 'healthy' });
   });
