@@ -47,6 +47,49 @@ export async function createApp(options: AppOptions = {}) {
     response.json({ status: 'healthy' });
   });
 
+  // Native rate limiter using in-memory Map
+  const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+  const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+  const RATE_LIMIT_MAX_REQUESTS = 100;
+
+  // Periodically clear expired entries to avoid memory leaks
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, data] of rateLimitMap.entries()) {
+      if (now > data.resetAt) {
+        rateLimitMap.delete(ip);
+      }
+    }
+  }, RATE_LIMIT_WINDOW_MS).unref(); // .unref() is crucial so interval doesn't hang Node tests
+
+  app.use('/api', (request, response, next) => {
+    const ip = request.ip || request.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+    let limitData = rateLimitMap.get(ip);
+
+    if (!limitData || now > limitData.resetAt) {
+      limitData = { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS };
+      rateLimitMap.set(ip, limitData);
+    } else {
+      limitData.count++;
+    }
+
+    // Set rate limit headers
+    response.setHeader('X-RateLimit-Limit', RATE_LIMIT_MAX_REQUESTS);
+    response.setHeader(
+      'X-RateLimit-Remaining',
+      Math.max(0, RATE_LIMIT_MAX_REQUESTS - limitData.count),
+    );
+    response.setHeader('X-RateLimit-Reset', Math.ceil(limitData.resetAt / 1000));
+
+    if (limitData.count > RATE_LIMIT_MAX_REQUESTS) {
+      response.status(429).json({ detail: 'Too many requests, please try again later.' });
+      return;
+    }
+
+    next();
+  });
+
   app.post('/api/logs', (request, response) => {
     const event = request.body?.event;
     const metadata = request.body?.metadata;
