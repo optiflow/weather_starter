@@ -47,6 +47,36 @@ export async function createApp(options: AppOptions = {}) {
     response.json({ status: 'healthy' });
   });
 
+  // Security enhancements: Native rate limiting for API endpoints
+  const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+  const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+  const MAX_REQUESTS_PER_WINDOW = 100;
+
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, data] of rateLimitMap.entries()) {
+      if (now > data.resetTime) {
+        rateLimitMap.delete(ip);
+      }
+    }
+  }, RATE_LIMIT_WINDOW_MS).unref();
+
+  app.use('/api', (request, response, next) => {
+    const ip = request.ip || request.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+    const limitData = rateLimitMap.get(ip);
+
+    if (!limitData || now > limitData.resetTime) {
+      rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+      next();
+    } else if (limitData.count < MAX_REQUESTS_PER_WINDOW) {
+      limitData.count++;
+      next();
+    } else {
+      response.status(429).json({ detail: 'Too many requests, please try again later.' });
+    }
+  });
+
   app.post('/api/logs', (request, response) => {
     const event = request.body?.event;
     const metadata = request.body?.metadata;
