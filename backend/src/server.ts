@@ -66,7 +66,44 @@ export async function createApp(options: AppOptions = {}) {
     response.status(204).end();
   });
 
-  app.use('/api', createLocationsRouter({ weatherClient: options.weatherClient }));
+  // Simple native rate limiting logic using in-memory Map
+  // Allows 100 requests per 15 minutes per IP
+  const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+  const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+  const RATE_LIMIT_MAX = 100;
+
+  // Cleanup interval to prevent memory leaks (unref is used to avoid hanging the process)
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, data] of rateLimitMap.entries()) {
+      if (now > data.resetTime) {
+        rateLimitMap.delete(ip);
+      }
+    }
+  }, RATE_LIMIT_WINDOW_MS).unref();
+
+  app.use(
+    '/api',
+    (request, response, next) => {
+      const ip = request.ip || request.socket.remoteAddress || 'unknown';
+      const now = Date.now();
+
+      let rateLimitData = rateLimitMap.get(ip);
+      if (!rateLimitData || now > rateLimitData.resetTime) {
+        rateLimitData = { count: 0, resetTime: now + RATE_LIMIT_WINDOW_MS };
+      }
+
+      rateLimitData.count++;
+      rateLimitMap.set(ip, rateLimitData);
+
+      if (rateLimitData.count > RATE_LIMIT_MAX) {
+        response.status(429).json({ detail: 'Too many requests, please try again later.' });
+        return;
+      }
+      next();
+    },
+    createLocationsRouter({ weatherClient: options.weatherClient }),
+  );
 
   if (serveFrontend) {
     if (process.env.NODE_ENV === 'production') {
