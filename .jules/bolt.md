@@ -1,0 +1,3 @@
+## 2024-05-16 - Sequential await bottleneck in weather data aggregation
+**Learning:** Sequential slow awaits were causing massive delay during the full snapshot retrieval (~28s) to avoid strict HTTP 429 rate limit errors from the SG Weather API.
+**Action:** When making multiple concurrent requests to an API with strict rate limiting, execute requests concurrently with staggered starts (e.g., using `Promise.all` with scaled `setTimeout` delays) instead of awaiting sequentially with sleep. This drastically reduces the total execution time (from ~28s to ~4.5s) while still safely avoiding rate limits.
