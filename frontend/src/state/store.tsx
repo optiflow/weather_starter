@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
   createLocation,
   deleteLocation,
@@ -116,22 +116,41 @@ export function StoreProvider({ children }: ProviderProps) {
     [load, selectedId],
   );
 
-  const value: StoreValue = {
-    locations,
-    selectedId: effectiveSelectedId,
-    isAdding,
-    isLoading,
-    refreshingId,
-    error,
-    select: setSelectedId,
-    setAdding: (nextIsAdding) => {
-      setIsAdding(nextIsAdding);
-      if (nextIsAdding) logInteraction('location_form_opened');
-    },
-    create,
-    refresh,
-    remove,
-  };
+  // Memoize setAdding to prevent unnecessary re-renders
+  const setAdding = useCallback((nextIsAdding: boolean) => {
+    setIsAdding(nextIsAdding);
+    if (nextIsAdding) logInteraction('location_form_opened');
+  }, []);
+
+  // Memoize context value to prevent unnecessary re-renders of all consumer components
+  // Impact: Reduces React re-render cycles across the entire application when StoreProvider re-renders
+  const value: StoreValue = useMemo(
+    () => ({
+      locations,
+      selectedId: effectiveSelectedId,
+      isAdding,
+      isLoading,
+      refreshingId,
+      error,
+      select: setSelectedId,
+      setAdding,
+      create,
+      refresh,
+      remove,
+    }),
+    [
+      locations,
+      effectiveSelectedId,
+      isAdding,
+      isLoading,
+      refreshingId,
+      error,
+      setAdding,
+      create,
+      refresh,
+      remove,
+    ],
+  );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
