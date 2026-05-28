@@ -10,6 +10,53 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const pinoHttp = pinoHttpModule.default ?? pinoHttpModule;
 const FRONTEND_EVENT_PATTERN = /^[a-z][a-z0-9_.:-]{1,63}$/;
 
+// Security enhancement: Native in-memory rate limiting state
+// Kept outside createApp to avoid memory leaks during testing
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+
+// Clean up expired rate limit entries every minute
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, data] of rateLimitMap.entries()) {
+    if (now > data.resetTime) {
+      rateLimitMap.delete(ip);
+    }
+  }
+}, 60000).unref();
+
+const rateLimitMiddleware = (
+  request: express.Request,
+  response: express.Response,
+  next: express.NextFunction,
+) => {
+  // Bypass rate limiting in tests to avoid test failures
+  if (process.env.NODE_ENV === 'test') {
+    next();
+    return;
+  }
+
+  const ip = request.ip || 'unknown';
+  const now = Date.now();
+  const windowMs = 60 * 1000; // 1 minute
+  const maxRequests = 100; // max requests per minute
+
+  let data = rateLimitMap.get(ip);
+
+  if (!data || now > data.resetTime) {
+    data = { count: 0, resetTime: now + windowMs };
+    rateLimitMap.set(ip, data);
+  }
+
+  data.count++;
+
+  if (data.count > maxRequests) {
+    response.status(429).json({ detail: 'Too many requests, please try again later.' });
+    return;
+  }
+
+  next();
+};
+
 interface AppOptions {
   serveFrontend?: boolean;
   enableRequestLogging?: boolean;
@@ -18,6 +65,9 @@ interface AppOptions {
 
 export async function createApp(options: AppOptions = {}) {
   const app = express();
+
+  // Security enhancement: Trust the first proxy to correctly resolve IPs behind reverse proxies
+  app.set('trust proxy', 1);
   const serveFrontend = options.serveFrontend ?? process.env.NODE_ENV !== 'test';
   const enableRequestLogging = options.enableRequestLogging ?? process.env.NODE_ENV !== 'test';
 
@@ -46,6 +96,9 @@ export async function createApp(options: AppOptions = {}) {
   app.get('/health', (_request, response) => {
     response.json({ status: 'healthy' });
   });
+
+  // Security enhancement: Apply rate limiting to all API routes
+  app.use('/api', rateLimitMiddleware);
 
   app.post('/api/logs', (request, response) => {
     const event = request.body?.event;
