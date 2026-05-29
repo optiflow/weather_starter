@@ -10,6 +10,16 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const pinoHttp = pinoHttpModule.default ?? pinoHttpModule;
 const FRONTEND_EVENT_PATTERN = /^[a-z][a-z0-9_.:-]{1,63}$/;
 
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, data] of rateLimitMap.entries()) {
+    if (now > data.resetTime) {
+      rateLimitMap.delete(ip);
+    }
+  }
+}, 60000).unref();
+
 interface AppOptions {
   serveFrontend?: boolean;
   enableRequestLogging?: boolean;
@@ -18,6 +28,8 @@ interface AppOptions {
 
 export async function createApp(options: AppOptions = {}) {
   const app = express();
+  app.set('trust proxy', 1);
+
   const serveFrontend = options.serveFrontend ?? process.env.NODE_ENV !== 'test';
   const enableRequestLogging = options.enableRequestLogging ?? process.env.NODE_ENV !== 'test';
 
@@ -41,6 +53,38 @@ export async function createApp(options: AppOptions = {}) {
 
     // Security enhancements: add payload size limit to prevent DoS
     express.json({ limit: '10kb' })(request, response, next);
+  });
+
+  // Security enhancements: native rate limiting
+  app.use('/api', (request, response, next) => {
+    if (process.env.NODE_ENV === 'test') {
+      next();
+      return;
+    }
+
+    const ip = request.ip || request.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+    const windowMs = 15 * 60 * 1000;
+    const maxRequests = 100;
+
+    let rateData = rateLimitMap.get(ip);
+    if (!rateData || now > rateData.resetTime) {
+      rateData = { count: 0, resetTime: now + windowMs };
+    }
+
+    rateData.count++;
+    rateLimitMap.set(ip, rateData);
+
+    response.setHeader('X-RateLimit-Limit', maxRequests);
+    response.setHeader('X-RateLimit-Remaining', Math.max(0, maxRequests - rateData.count));
+    response.setHeader('X-RateLimit-Reset', Math.ceil(rateData.resetTime / 1000));
+
+    if (rateData.count > maxRequests) {
+      response.status(429).json({ detail: 'Too many requests, please try again later.' });
+      return;
+    }
+
+    next();
   });
 
   app.get('/health', (_request, response) => {
