@@ -2,35 +2,13 @@
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/optiflow/weather_starter)
 
-A simple TypeScript weather app for agentic coding.
+Weather Starter is a full-stack TypeScript app for saving Singapore locations and viewing the latest local weather snapshot for each one. It is built as an npm workspaces monorepo with a React/Vite dashboard, an Express API, SQLite persistence through Drizzle ORM, and Singapore data.gov.sg weather endpoints.
 
-The app tracks Singapore locations and stores their latest weather. It uses a Node/Express backend, a React/Vite frontend, and Portless for a local `.localhost` URL.
-
-## Tech Stack
-
-| Layer        | Tools                                                       |
-| ------------ | ----------------------------------------------------------- |
-| Backend      | Node.js, TypeScript, Express                                |
-| Frontend     | React 18, Vite, Tailwind CSS                                |
-| Dev URL      | Portless named `.localhost` URLs                            |
-| External API | Singapore data.gov.sg (`api-open.data.gov.sg`)              |
-| Storage      | SQLite database at `backend/weather.db` through Drizzle ORM |
-
-## Architecture
-
-```mermaid
-flowchart LR
-    A["Browser<br/>http://weather-starter.localhost:1355"] --> B["Portless proxy"]
-    B --> C["Express + Vite middleware<br/>random local PORT"]
-    C --> D["SQLite database<br/>backend/weather.db"]
-    C -->|External API| E["data.gov.sg API<br/>api-open.data.gov.sg"]
-```
-
-The backend and frontend run in one Node process during development. Express serves `/api/*`. Vite serves the React app. The frontend uses relative `/api` requests. You do not need port configuration.
+The project is intentionally small enough to study end to end, but complete enough to exercise real full-stack workflows: location creation, browser geolocation, API validation, provider aggregation, persistence, refresh behavior, frontend state, responsive dashboard UI, and local documentation.
 
 ## Quick Start
 
-Install dependencies:
+Install dependencies from the repository root:
 
 ```bash
 npm install
@@ -42,219 +20,134 @@ Start the app:
 npm run dev
 ```
 
-The app uses Portless on a normal local port. You do not need sudo or certificates. Open the URL that Portless prints. Usually, it is:
+The root dev command runs Express and Vite middleware in one Node process behind Portless. Open the URL printed by Portless. The default local URL is usually:
 
 ```text
 http://weather-starter.localhost:1355
 ```
 
-## Useful Commands
+Start the docs site:
 
 ```bash
-npm run dev      # Start Express + Vite through Portless
-npm run build    # Build the frontend and compile backend TypeScript
-npm run start    # Run the compiled production server
-npm test         # Run backend API tests
-npm run test:watch # Run backend API tests in watch mode
-npm run doctor   # Verify /health and /api/locations
-npm run reset    # Remove the local SQLite database
-npm run db:generate # Generate Drizzle migrations after schema changes
-npm run db:migrate  # Apply Drizzle migrations to backend/weather.db
+npm run docs
 ```
 
-## API
-
-| Method | Endpoint                     | Description                    |
-| ------ | ---------------------------- | ------------------------------ |
-| `GET`  | `/health`                    | Health check                   |
-| `GET`  | `/api/locations`             | List all locations             |
-| `POST` | `/api/locations`             | Create a location              |
-| `POST` | `/api/locations/from-position` | Add nearest forecast area from browser position |
-| `GET`  | `/api/locations/:id`         | Get a single location          |
-| `DELETE` | `/api/locations/:id`       | Delete a location              |
-| `POST` | `/api/locations/:id/refresh` | Refresh weather for a location |
-
-Create a location:
+Before finishing changes, run the root quality gate:
 
 ```bash
-curl -s -X POST http://weather-starter.localhost:1355/api/locations \
-  -H "Content-Type: application/json" \
-  -d '{"latitude": 1.35, "longitude": 103.85}'
+npm test
+npm run build
+npm run lint
 ```
 
-Refresh weather:
+## What It Does
 
-```bash
-curl -s -X POST http://weather-starter.localhost:1355/api/locations/1/refresh
+- Saves Singapore coordinates manually through the dashboard.
+- Adds the nearest Singapore 2-hour forecast area from browser geolocation with **Use my location**.
+- Lists, selects, refreshes, and deletes saved locations.
+- Stores one latest weather snapshot per location in `backend/weather.db`.
+- Shows 2-hour forecast text, realtime temperature, humidity, rainfall, wind, UV, air quality, 24-hour forecast periods, and a 4-day outlook.
+- Renders a responsive React dashboard with a sidebar, selected-location hero, weather metric tiles, theme switching, and a Leaflet map.
+- Keeps detailed architecture, API, schema, component, and configuration docs in the `docs/` workspace.
+
+## Tech Stack
+
+| Layer | Tools |
+| --- | --- |
+| Frontend | React 18, Vite, Tailwind CSS, Leaflet |
+| Backend | Node.js, TypeScript, Express, Pino |
+| Persistence | SQLite, Drizzle ORM, generated Drizzle migrations |
+| Docs | Astro Starlight, Mermaid diagrams |
+| Dev URL | Portless named `.localhost` URL |
+| External API | Singapore data.gov.sg weather APIs |
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Browser["Browser\nReact + Vite dashboard"] --> Portless["Portless\nweather-starter.localhost:1355"]
+  Portless --> Express["Express app\n/api routes + Vite middleware"]
+  Express --> SQLite["SQLite\nbackend/weather.db"]
+  Express --> Weather["SingaporeWeatherClient"]
+  Weather --> Gov["data.gov.sg weather APIs"]
 ```
 
-## Data Flow
+In development, `scripts/dev.mjs` starts the backend with Vite loaded as middleware, so the browser can use relative `/api` requests without a separate frontend proxy. In production, the compiled backend serves `frontend/dist` as static files.
 
-The app uses a snapshot pattern. It does not call the external API on every page load:
+The app uses a snapshot model: saved locations keep the latest persisted weather data, and refresh actions fetch a new snapshot from data.gov.sg.
 
-1. You create a location manually, or click **Use my location** to resolve browser coordinates to the nearest Singapore 2-hour forecast area.
-2. The app saves exact manual coordinates or canonical forecast-area coordinates and adds a placeholder status.
-3. The backend fetches data from data.gov.sg. It saves the snapshot and returns the location.
-4. The app lists locations from `backend/weather.db` using Drizzle ORM.
-5. You trigger a manual refresh. The app fetches new data, saves the snapshot, and returns the location.
+## Common Commands
 
-## Project Structure
+Run commands from the repository root.
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the full app through Portless. |
+| `npm run docs` | Start the Astro Starlight docs site. |
+| `npm test` | Run Vitest and Supertest backend tests. |
+| `npm run build` | Build the frontend and compile backend TypeScript. |
+| `npm run lint` | Run Biome checks. |
+| `npm run format` | Format the repo with Biome. |
+| `npm run start` | Run the compiled production server. |
+| `npm run doctor` | Verify local health and API behavior. |
+| `npm run reset` | Reset local state such as the SQLite database. |
+| `npm run db:generate` | Generate Drizzle migrations after schema changes. |
+| `npm run db:migrate` | Apply Drizzle migrations. |
+
+See [docs/COMMANDS.md](docs/COMMANDS.md) and [configuration reference](docs/src/content/docs/reference/configuration.md) for the full command and environment reference.
+
+## API Overview
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/health` | Health check. |
+| `GET` | `/api/locations` | List saved locations. |
+| `POST` | `/api/locations` | Create a location from explicit coordinates. |
+| `POST` | `/api/locations/from-position` | Add or select the nearest forecast area from browser coordinates. |
+| `GET` | `/api/locations/:id` | Get one saved location. |
+| `DELETE` | `/api/locations/:id` | Delete a saved location. |
+| `POST` | `/api/locations/:id/refresh` | Refresh weather for a saved location. |
+| `POST` | `/api/logs` | Record frontend interaction events through the backend logger. |
+
+Full request, response, validation, and error behavior is documented in [API Endpoints](docs/src/content/docs/reference/api-endpoints.md).
+
+## Project Map
 
 ```text
 weather-starter/
-├── .agents/
-│   └── skills/                        # Custom agent skills and workflows
-├── backend/
-│   ├── drizzle/                       # Generated Drizzle SQL migrations
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── src/
-│       ├── server.ts                  # Express app + Vite middleware
-│       ├── db.ts                      # SQLite connection and data access helpers
-│       ├── logger.ts                  # Structured app logger
-│       ├── schema.ts                  # Drizzle table definitions
-│       ├── weather.ts                 # Singapore weather API client
-│       └── routes/
-│           ├── locations.ts           # Location endpoints
-│           └── locations.test.ts      # Location API tests
-├── config/                            # Project configuration files
-├── docs/                              # Project documentation and guidelines
-├── frontend/
-│   ├── index.html
-│   ├── package.json
-│   ├── postcss.config.js
-│   ├── tailwind.config.js
-│   ├── vite.config.ts
-│   └── src/
-│       ├── main.tsx
-│       ├── App.tsx
-│       ├── api.ts
-│       ├── state/
-│       ├── components/
-│       └── index.css
-├── scripts/
-│   ├── dev.mjs
-│   ├── start.mjs
-│   ├── doctor.mjs
-│   └── reset.mjs
-├── AGENTS.md                          # Core rules and agent instructions
-├── drizzle.config.ts                  # Drizzle ORM configuration
-├── package.json
-├── package-lock.json
-└── vitest.config.ts                   # Vitest testing configuration
+|-- backend/        # Express API, SQLite/Drizzle persistence, weather client
+|-- frontend/       # React/Vite dashboard, state, components, Leaflet map
+|-- docs/           # Astro Starlight documentation site
+|-- scripts/        # Dev, start, doctor, and reset orchestration
+|-- .agents/        # Repo-local agent skills and code-review role
+|-- AGENTS.md       # Agent operating contract for this repo
+|-- package.json    # Root npm workspace scripts
+`-- package-lock.json
 ```
 
-## External API Reference
+Start with these docs when you need more detail:
 
-The base URL is `https://api-open.data.gov.sg`. You do not need an API key for basic use. High traffic may trigger rate limits.
+- [Project architecture](docs/ARCHITECTURE.md)
+- [Getting started guide](docs/src/content/docs/guides/getting-started.md)
+- [API reference](docs/src/content/docs/reference/api-endpoints.md)
+- [Database schema](docs/src/content/docs/reference/database-schema.md)
+- [Frontend components](docs/src/content/docs/reference/frontend-components.md)
+- [TypeScript conventions](docs/TYPESCRIPT.md)
+- [Theme guidance](docs/THEMES.md)
 
-| Endpoint                                       | Docs                                                                                        | Notes                                                                                 |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `GET /v2/real-time/api/two-hr-forecast`        | [2-hour Forecast](https://data.gov.sg/datasets/d_3f9e064e25005b0e42969944ccaf2e7a/view)     | The app uses this. Response has `area_metadata` and forecasts.                        |
-| `GET /v2/real-time/api/air-temperature`        | [Realtime Weather Readings](https://data.gov.sg/collections/realtime-weather-readings/view) | Station temperature in Celsius.                                                       |
-| `GET /v2/real-time/api/relative-humidity`      | [Realtime Weather Readings](https://data.gov.sg/collections/realtime-weather-readings/view) | Station humidity percentage.                                                          |
-| `GET /v2/real-time/api/rainfall`               | [Realtime Weather Readings](https://data.gov.sg/collections/realtime-weather-readings/view) | Station rainfall in mm.                                                               |
-| `GET /v2/real-time/api/wind-speed`             | [Realtime Weather Readings](https://data.gov.sg/collections/realtime-weather-readings/view) | Station wind speed in knots.                                                          |
-| `GET /v2/real-time/api/wind-direction`         | [Realtime Weather Readings](https://data.gov.sg/collections/realtime-weather-readings/view) | Station wind direction in degrees.                                                    |
-| `GET /v1/environment/24-hour-weather-forecast` | [Weather Forecast](https://data.gov.sg/collections/weather-forecast/view)                   | 24-hour forecast in time blocks. This has a different shape than the 2-hour endpoint. |
-| `GET /v1/environment/4-day-weather-forecast`   | [Weather Forecast](https://data.gov.sg/collections/weather-forecast/view)                   | 4-day outlook with temperatures and text.                                             |
+## External Weather Data
 
-Use an API key:
+The app reads Singapore weather data from `api-open.data.gov.sg` and `api.data.gov.sg`. It works without an API key for light local usage. Set `WEATHER_API_KEY` if you need higher provider limits:
 
 ```bash
 export WEATHER_API_KEY=your_api_key_here
 npm run dev
 ```
 
-## Feature Tasks
+The weather client aggregates 2-hour forecast data, realtime station readings, UV, air quality, 24-hour forecast periods, and the 4-day outlook. Provider details live in [Weather Data](docs/src/content/docs/guides/weather-data.md).
 
-These tasks range from simple to hard. Each one builds on the code and adds concepts. File names may differ, but the behavior must stay the same.
+## Roadmap
 
-### 1. Delete a location ✅
-
-Add a `DELETE /api/locations/:id` endpoint. Add a delete button to cards in `SidebarCard.tsx`.
-
-| Layer    | Action                            |
-| -------- | --------------------------------- |
-| Backend  | Add DELETE endpoint for locations |
-| Frontend | Add button to `SidebarCard.tsx`   |
-
-### 2. Geolocation + auto-detect ✅
-
-Add a "Use my location" button. It must find the user's position, get the nearest Singapore area, and add it. This works on local setups. For HTTPS, run Portless with `PORTLESS_HTTPS=1`.
-
-| Layer    | Action                                                                                      |
-| -------- | ------------------------------------------------------------------------------------------- |
-| Backend  | Add `POST /api/locations/from-position` and nearest 2-hour forecast-area matching            |
-| Frontend | Add an always-visible sidebar button using the Geolocation API and select the saved location |
-
-### 3. Singapore area picker
-
-Replace lat/lon inputs with a dropdown. The 2-hour forecast has `area_metadata` with names and coordinates.
-
-| Layer        | Action                                                           |
-| ------------ | ---------------------------------------------------------------- |
-| Backend      | Return forecast areas if the frontend needs them                 |
-| Frontend     | Replace lat/lon fields with a dropdown using `area_metadata`     |
-| External API | `GET /v2/real-time/api/two-hr-forecast` -> `area_metadata` array |
-
-### 4. Current conditions ✅
-
-Show temperature, humidity, and rainfall next to the forecast. These share the station-reading pattern with coordinates.
-
-| Layer        | Action                                                                                                               |
-| ------------ | -------------------------------------------------------------------------------------------------------------------- |
-| Backend      | Fetch weather data and save the extra fields                                                                         |
-| Frontend     | Update location cards to show temperature, humidity, and rainfall                                                    |
-| External API | `GET /v2/real-time/api/air-temperature`, `GET /v2/real-time/api/relative-humidity`, `GET /v2/real-time/api/rainfall` |
-
-### 5. Hourly and daily forecast ✅
-
-Add an hourly timeline and a 4-day forecast below the conditions. The 24-hour endpoint returns data by region. The 4-day endpoint gives daily ranges and text. These `v1` endpoints use a different shape than the 2-hour API.
-
-| Layer        | Action                                                                                       |
-| ------------ | -------------------------------------------------------------------------------------------- |
-| Backend      | Add methods and endpoints, like `GET /api/locations/:id/forecast`                            |
-| Frontend     | Build a scrolling hourly row and a daily list showing text, icons, and temperatures          |
-| External API | `GET /v1/environment/24-hour-weather-forecast`, `GET /v1/environment/4-day-weather-forecast` |
-
-### 6. Wind and atmospheric data ✅
-
-Add a section for wind speed and direction. Show wind with an arrow or animation.
-
-| Layer        | Action                                                                     |
-| ------------ | -------------------------------------------------------------------------- |
-| Backend      | Fetch wind data and update refresh logic or add an endpoint                |
-| Frontend     | Create a `WindCompass` component to show wind visually                     |
-| External API | `GET /v2/real-time/api/wind-speed`, `GET /v2/real-time/api/wind-direction` |
-
-### 7. UI and theming ✅
-
-Redesign the app layout. Use nice cards, clear icons, responsive design, and smooth states. Build a modern dashboard that keeps workflows obvious.
-
-Add a map card. Show saved locations as pins with weather labels. The card expands to full-screen. Users still add locations via the main form, not the map.
-
-| Layer        | Action                                                                                                             |
-| ------------ | ------------------------------------------------------------------------------------------------------------------ |
-| Backend      | None                                                                                                               |
-| Frontend     | Restyle components using Tailwind. Add icons, colors, mobile support, and a map card with Leaflet or similar tool. |
-| NPM packages | `leaflet`, `react-leaflet` or equivalent                                                                           |
-
-### 8. Detail page with charts
-
-Add a detail view. Show charts for past temperature, rainfall, and humidity. Save each refresh as a new reading instead of replacing the snapshot.
-
-| Layer        | Action                                                                       |
-| ------------ | ---------------------------------------------------------------------------- |
-| Backend      | Add history model and endpoint for time-series data                          |
-| Frontend     | Build a detail page with charts using Recharts, Chart.js, or similar library |
-| NPM packages | `react-router-dom`, `recharts` or equivalent                                 |
-
-### 9. Multi-location management
-
-Let users sort locations, pick a primary one, and swipe on mobile. The app shows the primary location first.
-
-| Layer    | Action                                                                        |
-| -------- | ----------------------------------------------------------------------------- |
-| Backend  | Add sort and default data to the database and API                             |
-| Frontend | Add drag-and-drop or up/down buttons. Support swipeable cards on mobile apps. |
+- Singapore forecast-area picker to replace manual latitude/longitude entry.
+- Historical readings and charts instead of one latest snapshot per location.
+- Multi-location management with sorting, primary location selection, and mobile-friendly controls.
