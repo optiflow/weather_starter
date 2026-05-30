@@ -16,10 +16,52 @@ interface AppOptions {
   weatherClient?: WeatherClient;
 }
 
+// Rate Limiting Map
+const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 100; // 100 requests per minute
+
+// Cleanup interval to avoid memory leak, unref to not block tests
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, data] of rateLimitMap.entries()) {
+    if (now - data.windowStart > RATE_LIMIT_WINDOW_MS) {
+      rateLimitMap.delete(ip);
+    }
+  }
+}, RATE_LIMIT_WINDOW_MS).unref();
+
 export async function createApp(options: AppOptions = {}) {
   const app = express();
+
+  // Set trust proxy to correctly resolve IPs behind reverse proxy
+  app.set('trust proxy', 1);
+
   const serveFrontend = options.serveFrontend ?? process.env.NODE_ENV !== 'test';
   const enableRequestLogging = options.enableRequestLogging ?? process.env.NODE_ENV !== 'test';
+
+  // Security enhancement: Basic Rate Limiter
+  app.use('/api', (request, response, next) => {
+    if (process.env.NODE_ENV === 'test') {
+      return next();
+    }
+
+    const ip = request.ip || request.connection.remoteAddress || 'unknown';
+    const now = Date.now();
+
+    const record = rateLimitMap.get(ip);
+    if (!record || now - record.windowStart > RATE_LIMIT_WINDOW_MS) {
+      rateLimitMap.set(ip, { count: 1, windowStart: now });
+      next();
+    } else {
+      record.count += 1;
+      if (record.count > RATE_LIMIT_MAX_REQUESTS) {
+        response.status(429).json({ detail: 'Too many requests, please try again later.' });
+        return;
+      }
+      next();
+    }
+  });
 
   if (enableRequestLogging) {
     app.use(pinoHttp({ logger }));
