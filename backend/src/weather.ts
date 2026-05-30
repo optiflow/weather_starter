@@ -187,30 +187,42 @@ export class SingaporeWeatherClient {
   ) {}
 
   async getCurrentWeather(latitude: number, longitude: number): Promise<WeatherSnapshot> {
-    const settle = async <T>(promise: Promise<T>) => {
+    // Optimization: Stagger concurrent requests using delay thunks
+    // api-open.data.gov.sg has a strict rate limit, so we stagger requests to avoid HTTP 429
+    // while still executing them mostly in parallel via Promise.all.
+    const settle = async <T>(promiseThunk: () => Promise<T>, delayMs: number) => {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
       try {
-        const value = await promise;
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const value = await promiseThunk();
         return { status: 'fulfilled' as const, value };
       } catch (reason) {
         return { status: 'rejected' as const, reason };
       }
     };
 
-    const forecastPayload = await settle(this.fetchLatestForecastPayload());
-    const airTemp = await settle(this.fetchNearestReading('air-temperature', latitude, longitude));
-    const relativeHumidity = await settle(
-      this.fetchNearestReading('relative-humidity', latitude, longitude),
-    );
-    const rainfall = await settle(this.fetchNearestReading('rainfall', latitude, longitude));
-    const windSpeed = await settle(this.fetchNearestReading('wind-speed', latitude, longitude));
-    const windDirection = await settle(
-      this.fetchNearestReading('wind-direction', latitude, longitude),
-    );
-    const uvIndex = await settle(this.fetchUvIndex());
-    const airQuality = await settle(this.fetchAirQuality(latitude, longitude));
-    const twentyFourHour = await settle(this.fetchTwentyFourHourForecast(latitude, longitude));
-    const fourDay = await settle(this.fetchFourDayForecast());
+    const [
+      forecastPayload,
+      airTemp,
+      relativeHumidity,
+      rainfall,
+      windSpeed,
+      windDirection,
+      uvIndex,
+      airQuality,
+      twentyFourHour,
+      fourDay,
+    ] = await Promise.all([
+      settle(() => this.fetchLatestForecastPayload(), 0),
+      settle(() => this.fetchNearestReading('air-temperature', latitude, longitude), 100),
+      settle(() => this.fetchNearestReading('relative-humidity', latitude, longitude), 200),
+      settle(() => this.fetchNearestReading('rainfall', latitude, longitude), 300),
+      settle(() => this.fetchNearestReading('wind-speed', latitude, longitude), 400),
+      settle(() => this.fetchNearestReading('wind-direction', latitude, longitude), 500),
+      settle(() => this.fetchUvIndex(), 600),
+      settle(() => this.fetchAirQuality(latitude, longitude), 700),
+      settle(() => this.fetchTwentyFourHourForecast(latitude, longitude), 800),
+      settle(() => this.fetchFourDayForecast(), 900),
+    ]);
 
     const snapshot =
       forecastPayload.status === 'fulfilled'
