@@ -1,20 +1,206 @@
 {
   "repo_notes": [
     {
-      "content": "This repository is a TypeScript Singapore weather app monorepo using npm workspaces. The main workspaces are frontend/ for the React/Vite/Tailwind/Leaflet single-page app, backend/ for the Node.js/Express API with SQLite and Drizzle ORM, docs/ for the Astro Starlight documentation site, and scripts/ for local development orchestration.",
+      "content": "Weather Starter is a TypeScript Singapore weather app monorepo managed with npm workspaces. The main source areas are frontend/ for the React/Vite/Tailwind/Leaflet dashboard, backend/ for the Node.js/Express API with SQLite and Drizzle ORM, docs/ for the Astro Starlight documentation site, scripts/ for local orchestration, and .agents/ for repo-local agent workflows.",
       "author": "Repository maintainer"
     },
     {
-      "content": "DeepWiki should prioritize the interaction between the frontend state/UI, backend /api routes, Singapore data.gov.sg weather client, and SQLite persistence. Important source areas include frontend/src/state/store.tsx, frontend/src/api.ts, frontend/src/components/, backend/src/routes/locations.ts, backend/src/db.ts, backend/src/schema.ts, and backend/src/weather.ts.",
+      "content": "DeepWiki should explain the end-to-end weather snapshot workflow: users create, list, select, get, delete, and refresh saved Singapore locations; browser geolocation can create or select the nearest data.gov.sg 2-hour forecast area; the backend aggregates provider data into one snapshot; SQLite persists the latest snapshot; React renders the saved locations, map, forecast, metrics, and themes.",
       "author": "Repository maintainer"
     },
     {
-      "content": "Generated, local, or runtime state should not be treated as source-of-truth documentation. Avoid emphasizing frontend/dist/, backend/dist/, backend/weather.db, backend/logs/, .DS_Store files, or local environment files. Source files, tests, docs, and root commands are the authoritative references.",
+      "content": "Use local source files and docs as the source of truth. High-priority implementation files are backend/src/server.ts, backend/src/routes/locations.ts, backend/src/weather.ts, backend/src/db.ts, backend/src/schema.ts, frontend/src/api.ts, frontend/src/state/store.tsx, frontend/src/components/, docs/src/content/docs/, README.md, docs/ARCHITECTURE.md, docs/COMMANDS.md, and AGENTS.md.",
       "author": "Repository maintainer"
     },
     {
-      "content": "For agent-oriented workflows, document the root npm commands from package.json and docs/COMMANDS.md, the quality gate npm test then npm run build then npm run lint, and the instruction hierarchy in AGENTS.md. The app uses Portless for local development URLs and relative /api requests from the frontend.",
+      "content": "Do not treat generated, runtime, or local machine artifacts as authoritative documentation. Avoid creating or emphasizing pages for frontend/dist/, backend/dist/, backend/weather.db, backend/logs/, .env files, caches, .DS_Store files, or a Python workspace. This repository should be described as a TypeScript npm-workspaces app.",
       "author": "Repository maintainer"
+    },
+    {
+      "content": "For agent and operator workflows, document root npm commands from package.json and docs/COMMANDS.md, the quality gate npm test then npm run build then npm run lint, Portless development through scripts/dev.mjs, the production start path through scripts/start.mjs, and the instruction hierarchy in AGENTS.md and .agents/skills/.",
+      "author": "Repository maintainer"
+    }
+  ],
+  "pages": [
+    {
+      "title": "Overview",
+      "purpose": "Orient readers to Weather Starter as a full-stack TypeScript Singapore weather app and summarize how the frontend, backend, weather provider, SQLite persistence, docs, scripts, and agent guidance fit together.",
+      "parent": null,
+      "page_notes": [
+        "Explicitly state this is a TypeScript npm-workspaces repository, not a Python workspace.",
+        "Use README.md, docs/ARCHITECTURE.md, package.json, and llms.txt for the high-level source map."
+      ]
+    },
+    {
+      "title": "Getting Started and Commands",
+      "purpose": "Document installation, local development, docs startup, production startup, database commands, reset and doctor scripts, and the root quality gate.",
+      "parent": "Overview",
+      "page_notes": [
+        "Use package.json and docs/COMMANDS.md as the command sources of truth.",
+        "Mention npm workspaces, Portless local URLs, and running commands from the repository root."
+      ]
+    },
+    {
+      "title": "Monorepo Structure",
+      "purpose": "Explain the responsibilities of frontend/, backend/, docs/, scripts/, .agents/, root configuration files, and generated artifacts that should not be treated as source documentation.",
+      "parent": "Overview",
+      "page_notes": [
+        "Use README.md project map, docs/ARCHITECTURE.md, package.json workspaces, and root config files.",
+        "Call out frontend/dist/, backend/dist/, backend/weather.db, caches, and local environment files as generated or local state."
+      ]
+    },
+    {
+      "title": "Application Workflows",
+      "purpose": "Describe the user-visible workflows across the full stack: listing locations, manual coordinate creation, browser-position creation, selected-location rendering, refresh, delete, frontend logging, and provider failure handling.",
+      "parent": "Overview",
+      "page_notes": [
+        "Connect frontend actions in frontend/src/state/store.tsx to API calls in frontend/src/api.ts and route handlers in backend/src/routes/locations.ts.",
+        "Include success, duplicate, validation, provider-error, and delete flows at a behavioral level."
+      ]
+    },
+    {
+      "title": "Backend",
+      "purpose": "Provide a backend subsystem overview covering Express app construction, API mounting, logging, weather client use, persistence helpers, validation, and test coverage.",
+      "parent": null,
+      "page_notes": [
+        "Use backend/src/server.ts, backend/src/routes/locations.ts, backend/src/db.ts, backend/src/schema.ts, backend/src/weather.ts, and backend tests.",
+        "Keep this as an overview; put endpoint details, weather provider logic, and persistence details in child pages."
+      ]
+    },
+    {
+      "title": "Express Server and API Surface",
+      "purpose": "Document Express app setup, security headers, JSON limits, health route, frontend log route, API route mounting, Vite middleware in development, static serving in production, and error handling.",
+      "parent": "Backend",
+      "page_notes": [
+        "Use backend/src/server.ts and docs/src/content/docs/reference/api-endpoints.md.",
+        "Cover /health, /api/logs, /api route mounting, Vite middleware, static frontend serving, and consistent JSON error shape."
+      ]
+    },
+    {
+      "title": "Location Lifecycle API",
+      "purpose": "Document the full /api/locations lifecycle: list, create from coordinates, create from browser position, get one, delete, refresh, validation, duplicate behavior, idempotent browser-position behavior, and provider error responses.",
+      "parent": "Backend",
+      "page_notes": [
+        "Use backend/src/routes/locations.ts, backend/src/routes/locations.test.ts, and docs/src/content/docs/reference/api-endpoints.md.",
+        "Must include GET /api/locations/:locationId and DELETE /api/locations/:locationId, including the 204 No Content delete response."
+      ]
+    },
+    {
+      "title": "Weather Data Pipeline",
+      "purpose": "Explain how SingaporeWeatherClient fetches and combines data.gov.sg 2-hour forecasts, station readings, UV, PSI, PM2.5, 24-hour regional forecasts, and 4-day forecasts into one WeatherSnapshot.",
+      "parent": "Backend",
+      "page_notes": [
+        "Use backend/src/weather.ts, backend/src/weather.test.ts, backend/src/weather-test.ts, docs/src/content/docs/guides/weather-data.md, and .agents/skills/sg-weather-api/SKILL.md.",
+        "Cover nearest forecast-area matching, nearest station matching, region matching, partial failures, timeouts, API key behavior, and WeatherProviderError mapping."
+      ]
+    },
+    {
+      "title": "SQLite Persistence and Drizzle Schema",
+      "purpose": "Document SQLite persistence, Drizzle schema and migrations, database helper functions, default weather snapshots, unique coordinate behavior, JSON text columns, and row-to-API mapping.",
+      "parent": "Backend",
+      "page_notes": [
+        "Use backend/src/schema.ts, backend/src/db.ts, backend/drizzle/, docs/src/content/docs/reference/database-schema.md, and backend persistence tests.",
+        "Do not use backend/weather.db as the source of truth; it is local runtime state."
+      ]
+    },
+    {
+      "title": "Frontend",
+      "purpose": "Provide a frontend subsystem overview covering React app composition, state providers, API client, dashboard layout, location actions, map behavior, themes, and weather rendering.",
+      "parent": null,
+      "page_notes": [
+        "Use frontend/src/main.tsx, frontend/src/App.tsx, frontend/src/state/, frontend/src/api.ts, frontend/src/components/, frontend/src/types.ts, and docs/src/content/docs/reference/frontend-components.md.",
+        "Keep this as an overview; put state, component rendering, map/geolocation, and themes in child pages."
+      ]
+    },
+    {
+      "title": "Dashboard State and API Client",
+      "purpose": "Document React Context state management, selected-location behavior, loading and error state, create/createFromPosition/refresh/remove actions, frontend logging calls, and the fetch wrapper contracts.",
+      "parent": "Frontend",
+      "page_notes": [
+        "Use frontend/src/state/store.tsx, frontend/src/api.ts, frontend/src/types.ts, and backend API reference docs.",
+        "Explain how the store reloads locations after mutations and how selectedId is adjusted after create, browser-position create, and delete."
+      ]
+    },
+    {
+      "title": "Dashboard Components and Weather Rendering",
+      "purpose": "Document the React component tree and how the dashboard renders saved locations, selected-location hero data, hourly forecast periods, daily forecasts, and metric tiles.",
+      "parent": "Frontend",
+      "page_notes": [
+        "Use frontend/src/App.tsx, frontend/src/components/, frontend/src/components/format.ts, frontend/src/types.ts, and docs/src/content/docs/reference/frontend-components.md.",
+        "Cover Sidebar, AddLocationForm, SidebarCard, Hero, HourlyStrip, TenDayForecast, TileGrid, and unavailable-value display behavior."
+      ]
+    },
+    {
+      "title": "Map, Geolocation, and Forecast-Area Matching",
+      "purpose": "Document the Leaflet map, fullscreen map behavior, browser geolocation wrapper, trusted-origin checks, Use my location flow, backend validation, and canonical nearest 2-hour forecast-area storage.",
+      "parent": "Frontend",
+      "page_notes": [
+        "Use frontend/src/components/MapCard.tsx, frontend/src/components/UseMyLocationButton.tsx, frontend/src/geolocation.ts, frontend/src/state/store.tsx, backend/src/routes/locations.ts, and backend/src/weather.ts.",
+        "Must cover both frontend geolocation guard rails and backend nearest-area canonicalization through POST /api/locations/from-position."
+      ]
+    },
+    {
+      "title": "Themes and Responsive Styling",
+      "purpose": "Document Tailwind styling, theme state, body theme classes, localStorage persistence, available themes, responsive dashboard layout, and visual conventions.",
+      "parent": "Frontend",
+      "page_notes": [
+        "Use frontend/src/state/themeStore.tsx, frontend/src/components/ThemeSelector.tsx, frontend/src/index.css, frontend/tailwind.config.js, docs/THEMES.md, and frontend component classes.",
+        "Include the current theme names and body class behavior without inventing design-system features that do not exist."
+      ]
+    },
+    {
+      "title": "Documentation and Operations",
+      "purpose": "Summarize the documentation surfaces and operational scripts that support the app: README, Starlight docs, llms.txt, root command docs, configuration reference, local scripts, and GitHub Pages docs deployment.",
+      "parent": null,
+      "page_notes": [
+        "Use README.md, llms.txt, docs/, scripts/, package.json, and .github/workflows/deploy-docs.yml.",
+        "Keep this focused on docs and local operations rather than application runtime internals."
+      ]
+    },
+    {
+      "title": "Starlight Docs Site",
+      "purpose": "Document the Astro Starlight docs workspace, sidebar structure, guides, reference pages, Mermaid usage, docs package scripts, and GitHub Pages base path.",
+      "parent": "Documentation and Operations",
+      "page_notes": [
+        "Use docs/astro.config.mjs, docs/package.json, docs/src/content.config.ts, docs/src/content/docs/, and docs public assets.",
+        "Cover guides/getting-started, guides/adding-locations, guides/weather-data, reference/api-endpoints, reference/database-schema, reference/frontend-components, and reference/configuration."
+      ]
+    },
+    {
+      "title": "Runtime Configuration and Local Scripts",
+      "purpose": "Document environment variables, dev/start/reset/doctor scripts, Portless defaults, production serving path, SQLite database path behavior, and weather API key usage.",
+      "parent": "Documentation and Operations",
+      "page_notes": [
+        "Use scripts/dev.mjs, scripts/start.mjs, scripts/reset.mjs, scripts/doctor.mjs, .env.example, frontend/.env.local.example, docs/src/content/docs/reference/configuration.md, and package.json.",
+        "Mention that secrets and .env contents must not be committed or printed."
+      ]
+    },
+    {
+      "title": "Agent Workflow and Quality",
+      "purpose": "Document repository instructions for agents, local skills, code-review role, quality gates, permissions, and workflow expectations.",
+      "parent": null,
+      "page_notes": [
+        "Use AGENTS.md, .agents/skills/, .agents/code-review/agent.md, skills-lock.json, and llms.txt.",
+        "Explain when to use repo-quality-gate, weather-feature-workflow, drizzle-sqlite-migration, frontend-visual-qa, sg-weather-api, and chrome-devtools."
+      ]
+    },
+    {
+      "title": "Tests, Linting, and Verification",
+      "purpose": "Document the Vitest and Supertest test suites, backend test fixtures, Biome lint and formatting setup, TypeScript build checks, docs review expectations, and sandbox listen EPERM retry guidance.",
+      "parent": "Agent Workflow and Quality",
+      "page_notes": [
+        "Use vitest.config.ts, biome.json, backend/src/*.test.ts, docs/COMMANDS.md, docs/TYPESCRIPT.md, AGENTS.md, and .agents/skills/repo-quality-gate/SKILL.md.",
+        "Include the quality gate order: npm test, npm run build, npm run lint."
+      ]
+    },
+    {
+      "title": "Glossary",
+      "purpose": "Define project-specific terms and concepts used across the wiki, including WeatherSnapshot, location, matched_area, forecast area, station reading, region reading, Portless, Drizzle migration, Starlight docs, and local agent skills.",
+      "parent": null,
+      "page_notes": [
+        "Use README.md, docs/src/content/docs/reference/api-endpoints.md, docs/src/content/docs/reference/database-schema.md, docs/src/content/docs/guides/weather-data.md, and source type definitions.",
+        "Keep definitions grounded in the current codebase and avoid adding terms for systems that are not present."
+      ]
     }
   ]
 }
