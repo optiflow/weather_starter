@@ -10,6 +10,21 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const pinoHttp = pinoHttpModule.default ?? pinoHttpModule;
 const FRONTEND_EVENT_PATTERN = /^[a-z][a-z0-9_.:-]{1,63}$/;
 
+// Security enhancement: Native rate limiting state
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const RATE_LIMIT_MAX_REQUESTS = 100;
+
+// Cleanup loop for rate limiter
+const _cleanupInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [ip, data] of rateLimitMap.entries()) {
+    if (now > data.resetTime) {
+      rateLimitMap.delete(ip);
+    }
+  }
+}, 60000).unref(); // .unref() prevents this from keeping Node alive during tests
+
 interface AppOptions {
   serveFrontend?: boolean;
   enableRequestLogging?: boolean;
@@ -21,9 +36,44 @@ export async function createApp(options: AppOptions = {}) {
   const serveFrontend = options.serveFrontend ?? process.env.NODE_ENV !== 'test';
   const enableRequestLogging = options.enableRequestLogging ?? process.env.NODE_ENV !== 'test';
 
+  app.set('trust proxy', 1);
+
   if (enableRequestLogging) {
     app.use(pinoHttp({ logger }));
   }
+
+  // Security enhancements: rate limiter middleware
+  app.use('/api', (request, response, next) => {
+    if (process.env.NODE_ENV === 'test') {
+      next();
+      return;
+    }
+
+    const ip = request.ip || request.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+
+    let clientData = rateLimitMap.get(ip);
+    if (!clientData || now > clientData.resetTime) {
+      clientData = { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS };
+      rateLimitMap.set(ip, clientData);
+    } else {
+      clientData.count++;
+    }
+
+    response.setHeader('X-RateLimit-Limit', RATE_LIMIT_MAX_REQUESTS);
+    response.setHeader(
+      'X-RateLimit-Remaining',
+      Math.max(0, RATE_LIMIT_MAX_REQUESTS - clientData.count),
+    );
+    response.setHeader('X-RateLimit-Reset', Math.ceil(clientData.resetTime / 1000));
+
+    if (clientData.count > RATE_LIMIT_MAX_REQUESTS) {
+      response.status(429).json({ detail: 'Too many requests, please try again later.' });
+      return;
+    }
+
+    next();
+  });
 
   // Security enhancements: add basic headers natively
   app.use((_request, response, next) => {
