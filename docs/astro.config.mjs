@@ -10,6 +10,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'Weather Starter',
+      customCss: ['./src/styles/landing.css'],
       sidebar: [
         {
           label: 'Guides',
